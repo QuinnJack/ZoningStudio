@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mapbox Storytelling</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://raw.githubusercontent.com/mapbox/assembly/publisher-staging/src/svgs/mapbox.svg"
+    />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/mapbox-gl-globe-minimap@1.2.0/dist/bundle.js"></script>
+    <script src="https://unpkg.com/scrollama"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/locomotive-scroll/dist/locomotive-scroll.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/locomotive-scroll/dist/locomotive-scroll.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      a,
+      a:hover,
+      a:visited {
+        color: #0071bc;
+      }
+
+      #map {
+        top: 0;
+        height: 100vh;
+        width: 100vw;
+        position: fixed;
+      }
+      .mapboxgl-ctrl-bottom-right {
+        visibility: hidden;
+      }
+      .mapboxgl-ctrl-logo {
+        visibility: hidden;
+      }
+      #header {
+        margin: auto;
+        width: 100%;
+        position: relative;
+        z-index: 5;
+      }
+
+      #header h1,
+      #header h2,
+      #header p {
+        margin: 0;
+        font-weight: 600;
+
+        padding: 2vh 2vw;
+        text-align: center;
+      }
+
+      #footer {
+        width: 100%;
+        min-height: 5vh;
+        padding-top: 2vh;
+        padding-bottom: 2vh;
+        text-align: center;
+        line-height: 25px;
+        font-size: 13px;
+        position: relative;
+        z-index: 5;
+      }
+
+      #features {
+        padding-top: 10vh;
+        padding-bottom: 10vh;
+      }
+
+      .hidden {
+        visibility: hidden;
+      }
+
+      .centered {
+        width: 50vw;
+        margin: 0 auto;
+      }
+
+      .lefty {
+        width: 33vw;
+        margin-left: 5vw;
+      }
+
+      .righty {
+        width: 33vw;
+        margin-left: 62vw;
+      }
+
+      .fully {
+        width: 100%;
+        margin: auto;
+      }
+
+      .light {
+        color: #444;
+        background-color: #fafafa;
+      }
+
+      .dark {
+        color: #444;
+        background-color: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(50px);
+        -webkit-backdrop-filter: blur(50px);
+        filter: saturate(150%);
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        padding: 1rem;
+        line-height: 1.8;
+      }
+
+      .step {
+        padding-top: 15vh;
+        padding-bottom: 50vh;
+        opacity: 0.25;
+      }
+
+      .step.active {
+        opacity: 1;
+      }
+
+      .step div {
+        padding: 25px 50px;
+        line-height: 1.6;
+        font-size: 14px;
+        font-weight: 400;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+      }
+
+      .step img {
+        width: 100%;
+      }
+
+      @media (max-width: 750px) {
+        .centered,
+        .lefty,
+        .righty,
+        .fully {
+          width: 90vw;
+          margin: 0 auto;
+        }
+      }
+
+      /* Fix issue on mobile browser where scroll breaks  */
+      .mapboxgl-canvas-container.mapboxgl-touch-zoom-rotate.mapboxgl-touch-drag-pan,
+      .mapboxgl-canvas-container.mapboxgl-touch-zoom-rotate.mapboxgl-touch-drag-pan
+        .mapboxgl-canvas {
+        touch-action: unset;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+    <div id="story" data-scroll-container></div>
+
+    <script src="./config.js"></script>
+    <script>
+      function hexToRgba(hex, alpha) {
+        const bigint = parseInt(hex.slice(1), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      const zoneColors = {
+        "Special District Zones": "#b7b7a9",
+        "Neighbourhood Zone": "#e8c166",
+        "Mobile Home Park Zone": "#d1d989",
+        "Neighbourhood Mixed-Use Zone": "#ffc966",
+        "Village Residential Zone": "#e8ae95",
+        "Village Mixed Use Zone": "#fd9783",
+        "Rural Residential Zone": "#e3e35d",
+        "Development Reserve Zone": "#d8a6c1",
+        "Agricultural Zone": "#DCC39B",
+        "Rural Countryside Zone": "#aad5af",
+        "Rural Commercial Zone": "#d16c6b",
+        "Greenbelt Zones": "#ab866d",
+        "Industrial Zones": "#a6c1d9",
+        "Transportation Zones": "#c2afdb",
+        "Environmental Zones": "#659a86",
+        "Open Space Facility Zone": "#95d66f",
+        "Mainstreet and Minor Corridor Zones": "#a875bd",
+        "Hub Zones": "#cd676a",
+        "Hub Zone": "#cd676a",
+        "Institutional Zone": "#80b9ff",
+        "Large-Scale Institutional and Recreation Zone": "#80b9ff",
+        "Recreation Zone": "#a7d1d0",
+        "Greenspace Zone": "#55c3b5",
+        "Mineral Extraction Zones": "#9e9e9e",
+        "Rural Institutional Zone": "#418ba4",
+      };
+
+      function getZoneColor(title) {
+        const normalizedTitle = title
+          .toLowerCase()
+          .replace(/zone(s)?/g, "")
+          .trim();
+
+        let bestMatch = null;
+        let bestMatchLength = 0;
+
+        for (const zone in zoneColors) {
+          const normalizedZone = zone
+            .toLowerCase()
+            .replace(/zone(s)?/g, "")
+            .trim();
+
+          if (
+            normalizedTitle.includes(normalizedZone) &&
+            normalizedZone.length > bestMatchLength
+          ) {
+            bestMatch = zone;
+            bestMatchLength = normalizedZone.length;
+          }
+        }
+
+        return bestMatch ? zoneColors[bestMatch] : null;
+      }
+
+      var initLoad = true;
+      var layerTypes = {
+        fill: ["fill-opacity"],
+        line: ["line-opacity"],
+        circle: ["circle-opacity", "circle-stroke-opacity"],
+        symbol: ["icon-opacity", "text-opacity"],
+        raster: ["raster-opacity"],
+        "fill-extrusion": ["fill-extrusion-opacity"],
+        heatmap: ["heatmap-opacity"],
+      };
+
+      var alignments = {
+        left: "lefty",
+        center: "centered",
+        right: "righty",
+        full: "fully",
+      };
+
+      function getLayerPaintType(layer) {
+        var layerType = map.getLayer(layer).type;
+        return layerTypes[layerType];
+      }
+
+      function setLayerOpacity(layer) {
+        var paintProps = getLayerPaintType(layer.layer);
+        paintProps.forEach(function (prop) {
+          var options = {};
+          if (layer.duration) {
+            var transitionProp = prop + "-transition";
+            options = { duration: layer.duration };
+            map.setPaintProperty(layer.layer, transitionProp, options);
+          }
+          map.setPaintProperty(layer.layer, prop, layer.opacity, options);
+        });
+      }
+
+      // New function to handle chapter navigation
+      function goToChapter(chapter) {
+        // Find the corresponding DOM element
+        var chapterElement = document.getElementById(chapter.id);
+
+        // Remove 'active' class from all steps and add to the current one
+        var allSteps = document.querySelectorAll(".step");
+        allSteps.forEach(function (step) {
+          step.classList.remove("active");
+        });
+        chapterElement.classList.add("active");
+
+        // Perform map animation
+        map[chapter.mapAnimation || "flyTo"](chapter.location);
+
+        // Update the URL with the current chapter ID
+        history.replaceState(null, "", "?chapter=" + chapter.id);
+
+        if (config.showMarkers) {
+          marker.setLngLat(chapter.location.center);
+        }
+        if (chapter.onChapterEnter.length > 0) {
+          chapter.onChapterEnter.forEach(setLayerOpacity);
+        }
+        if (chapter.callback) {
+          window[chapter.callback]();
+        }
+        if (chapter.rotateAnimation) {
+          map.once("moveend", () => {
+            const rotateNumber = map.getBearing();
+            map.rotateTo(rotateNumber + 180, {
+              duration: 30000,
+              easing: function (t) {
+                return t;
+              },
+            });
+          });
+        }
+        if (config.auto) {
+          var current_chapter_index = config.chapters.findIndex(
+            (chap) => chap.id === chapter.id
+          );
+          var next_chapter =
+            (current_chapter_index + 1) % config.chapters.length;
+          map.once("moveend", () => {
+            document
+              .querySelectorAll(
+                '[data-scrollama-index="' + next_chapter.toString() + '"]'
+              )[0]
+              .scrollIntoView();
+          });
+        }
+      }
+
+      var story = document.getElementById("story");
+      const scroll = new LocomotiveScroll({
+        el: document.querySelector("#story"),
+        smooth: true,
+        multiplier: 0.5,
+      });
+      var features = document.createElement("div");
+      features.setAttribute("id", "features");
+
+      var header = document.createElement("div");
+
+      if (config.title) {
+        var titleText = document.createElement("h1");
+        titleText.innerText = config.title;
+        header.appendChild(titleText);
+      }
+
+      if (config.subtitle) {
+        var subtitleText = document.createElement("h2");
+        subtitleText.innerText = config.subtitle;
+        header.appendChild(subtitleText);
+      }
+
+      if (config.byline) {
+        var bylineText = document.createElement("p");
+        bylineText.innerText = config.byline;
+        header.appendChild(bylineText);
+      }
+
+      if (header.innerText.length > 0) {
+        header.classList.add(config.theme);
+        header.setAttribute("id", "header");
+        story.appendChild(header);
+      }
+
+      config.chapters.forEach((record, idx) => {
+        var container = document.createElement("div");
+        var chapter = document.createElement("div");
+
+        var title = document.createElement("h3");
+        title.innerText = record.title;
+        title.style.marginBottom = "0.25rem";
+
+        const zoneColor = getZoneColor(record.title);
+        if (zoneColor) {
+          title.style.border = "1px solid " + zoneColor;
+          title.style.backgroundColor = hexToRgba(zoneColor, 0.15);
+          title.style.color = zoneColor;
+          title.style.borderRadius = "6px";
+          title.style.padding = "0.25rem .5rem";
+          title.style.display = "inline-block";
+          title.style.fontWeight = "800";
+        }
+
+        chapter.appendChild(title);
+
+        if (record.image) {
+          var image = new Image();
+          image.src = record.image;
+          chapter.appendChild(image);
+        }
+
+        if (record.description) {
+          var story = document.createElement("p");
+          story.innerHTML = record.description;
+          chapter.appendChild(story);
+        }
+
+        container.setAttribute("id", record.id);
+        container.classList.add("step");
+        if (idx === 0) {
+          container.classList.add("active");
+        }
+
+        chapter.classList.add(config.theme);
+        container.appendChild(chapter);
+        container.classList.add(alignments[record.alignment] || "centered");
+        if (record.hidden) {
+          container.classList.add("hidden");
+        }
+        features.appendChild(container);
+      });
+
+      story.appendChild(features);
+
+      var footer = document.createElement("div");
+
+      if (config.footer) {
+        var footerText = document.createElement("p");
+        footerText.innerHTML = config.footer;
+        footer.appendChild(footerText);
+      }
+
+      if (footer.innerText.length > 0) {
+        footer.classList.add(config.theme);
+        footer.setAttribute("id", "footer");
+        story.appendChild(footer);
+      }
+      scroll.update();
+
+      mapboxgl.accessToken = config.accessToken;
+
+      // Get chapter ID from URL parameters
+      var urlParams = new URLSearchParams(window.location.search);
+      var chapterId = urlParams.get("chapter");
+
+      // Set initial chapter based on URL parameter or default to the first chapter
+      var initialChapter = config.chapters[0];
+      if (chapterId) {
+        var chapter = config.chapters.find((chap) => chap.id === chapterId);
+        if (chapter) {
+          initialChapter = chapter;
+        }
+      }
+
+      var map = new mapboxgl.Map({
+        container: "map",
+        style: config.style,
+        center: initialChapter.location.center,
+        zoom: initialChapter.location.zoom,
+        bearing: initialChapter.location.bearing,
+        pitch: initialChapter.location.pitch,
+        interactive: false,
+        projection: config.projection,
+      });
+
+      // Create an inset map if enabled in config.js
+      if (config.inset) {
+        map.addControl(
+          new GlobeMinimap({ ...config.insetOptions }),
+          config.insetPosition
+        );
+      }
+
+      if (config.showMarkers) {
+        var marker = new mapboxgl.Marker({ color: config.markerColor });
+        marker.setLngLat(initialChapter.location.center).addTo(map);
+      }
+
+      // instantiate the scrollama
+      var scroller = scrollama();
+
+      map.on("load", function () {
+        if (config.use3dTerrain) {
+          map.addSource("mapbox-dem", {
+            type: "raster-dem",
+            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+            tileSize: 512,
+            maxzoom: 14,
+          });
+          // add the DEM source as a terrain layer with exaggerated height
+          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+
+          // add a sky layer that will show when the map is highly pitched
+          map.addLayer({
+            id: "sky",
+            type: "sky",
+            paint: {
+              "sky-type": "atmosphere",
+              "sky-atmosphere-sun": [0.0, 0.0],
+              "sky-atmosphere-sun-intensity": 15,
+            },
+          });
+        }
+
+        // setup the instance, pass callback functions
+        scroller
+          .setup({
+            container: document.querySelector("[data-scroll-container]"),
+            step: ".step",
+            offset: 0.5,
+            progress: true,
+          })
+          .onStepEnter(async (response) => {
+            var current_chapter = config.chapters.find(
+              (chap) => chap.id === response.element.id
+            );
+
+            // Call the goToChapter function
+            goToChapter(current_chapter);
+          })
+          .onStepExit((response) => {
+            var chapter = config.chapters.find(
+              (chap) => chap.id === response.element.id
+            );
+            response.element.classList.remove("active");
+            if (chapter.onChapterExit.length > 0) {
+              chapter.onChapterExit.forEach(setLayerOpacity);
+            }
+          });
+
+        if (config.auto) {
+          var firstElement = document.querySelectorAll(
+            '[data-scrollama-index="0"]'
+          )[0];
+          if (firstElement) {
+            scroll.scrollTo(firstElement, {
+              offset: 0,
+              duration: 1500,
+              easing: [0.42, 0, 0.58, 1],
+            });
+          }
+        }
+
+        // After appending features to the story, scroll to the chapter element if chapterId is specified
+        if (chapterId) {
+          var chapterElement = document.getElementById(initialChapter.id);
+          if (chapterElement) {
+            scroll.scrollTo(chapterElement, {
+              offset: 0,
+              duration: 1500,
+              easing: [0.42, 0, 0.58, 1],
+            });
+            setTimeout(() => {
+              goToChapter(initialChapter);
+            }, 1500);
+          }
+        }
+      });
+      console.log(map.getStyle().layers);
+    </script>
+  </body>
+  <>
+</html>
